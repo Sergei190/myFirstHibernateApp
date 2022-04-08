@@ -1,0 +1,1196 @@
+Index: src/main/java/dao/UserDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/dao/UserDao.java	(date 1649088084873)
++++ src/main/java/dao/UserDao.java	(date 1649088084873)
+@@ -0,0 +1,48 @@
++package dao;
++
++import models.Auto;
++import models.User;
++import org.hibernate.Session;
++import org.hibernate.Transaction;
++import utils.HibernateSessionFactoryUtil;
++import java.util.List;
++
++public class UserDao {
++
++    public User findById(int id) {
++        return HibernateSessionFactoryUtil.getSessionFactory().openSession().get(User.class, id);
++    }
++
++    public void save(User user) {
++        Session session = HibernateSessionFactoryUtil.getSessionFactory().openSession();
++        Transaction tx1 = session.beginTransaction();
++        session.save(user);
++        tx1.commit();
++        session.close();
++    }
++
++    public void update(User user) {
++        Session session = HibernateSessionFactoryUtil.getSessionFactory().openSession();
++        Transaction tx1 = session.beginTransaction();
++        session.update(user);
++        tx1.commit();
++        session.close();
++    }
++
++    public void delete(User user) {
++        Session session = HibernateSessionFactoryUtil.getSessionFactory().openSession();
++        Transaction tx1 = session.beginTransaction();
++        session.delete(user);
++        tx1.commit();
++        session.close();
++    }
++
++    public Auto findAutoById(int id) {
++        return HibernateSessionFactoryUtil.getSessionFactory().openSession().get(Auto.class, id);
++    }
++
++    public List<User> findAll() {
++        List<User> users = (List<User>)  HibernateSessionFactoryUtil.getSessionFactory().openSession().createQuery("From User").list();
++        return users;
++    }
++}
+Index: src/main/java/utils/HibernateSessionFactoryUtil.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/utils/HibernateSessionFactoryUtil.java	(date 1649087803795)
++++ src/main/java/utils/HibernateSessionFactoryUtil.java	(date 1649087803795)
+@@ -0,0 +1,29 @@
++package utils;
++
++import models.Auto;
++import models.User;
++import org.hibernate.SessionFactory;
++import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
++import org.hibernate.cfg.Configuration;
++
++public class HibernateSessionFactoryUtil {
++    private static SessionFactory sessionFactory;
++
++    private HibernateSessionFactoryUtil() {}
++
++    public static SessionFactory getSessionFactory() {
++        if (sessionFactory == null) {
++            try {
++                Configuration configuration = new Configuration().configure();
++                configuration.addAnnotatedClass(User.class);
++                configuration.addAnnotatedClass(Auto.class);
++                StandardServiceRegistryBuilder builder = new StandardServiceRegistryBuilder().applySettings(configuration.getProperties());
++                sessionFactory = configuration.buildSessionFactory(builder.build());
++
++            } catch (Exception e) {
++                System.out.println("Исключение!" + e);
++            }
++        }
++        return sessionFactory;
++    }
++}
+\ No newline at end of file
+Index: src/main/java/models/Auto.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/models/Auto.java	(date 1649087256741)
++++ src/main/java/models/Auto.java	(date 1649087256741)
+@@ -0,0 +1,64 @@
++package models;
++
++import javax.persistence.*;
++
++@Entity
++@Table(name = "autos")
++public class Auto {
++
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private int id;
++
++    @Column (name = "model")
++    private String model;
++
++    //можно не указывать Column name, если оно совпадает с названием столбца в таблице
++    private String color;
++
++
++    @ManyToOne(fetch = FetchType.LAZY)
++    @JoinColumn(name = "user_id")
++    private User user;
++
++    public Auto() {
++    }
++
++    public Auto(String model, String color) {
++        this.model = model;
++        this.color = color;
++    }
++
++    public int getId() {
++        return id;
++    }
++
++    public String getModel() {
++        return model;
++    }
++
++    public void setModel(String model) {
++        this.model = model;
++    }
++
++    public String getColor() {
++        return color;
++    }
++
++    public void setColor(String color) {
++        this.color = color;
++    }
++
++    public User getUser() {
++        return user;
++    }
++
++    public void setUser(User user) {
++        this.user = user;
++    }
++
++    @Override
++    public String toString() {
++        return color + " " + model;
++    }
++}
+Index: src/main/java/utils/Main.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/utils/Main.java	(date 1649088573571)
++++ src/main/java/utils/Main.java	(date 1649088573571)
+@@ -0,0 +1,24 @@
++package utils;
++
++import models.Auto;
++import models.User;
++import services.UserService;
++
++import java.sql.SQLException;
++
++public class Main {
++    public static void main(String[] args) throws SQLException {
++
++        UserService userService = new UserService();
++        User user = new User("Masha",26);
++        userService.saveUser(user);
++        Auto ferrari = new Auto("Ferrari", "red");
++        user.addAuto(ferrari);
++        Auto ford = new Auto("Ford", "black");
++        ford.setUser(user);
++        user.addAuto(ford);
++        userService.updateUser(user);
++        user.setName("Sasha");
++        userService.updateUser(user);
++    }
++}
+Index: src/main/java/models/User.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/models/User.java	(date 1649086977347)
++++ src/main/java/models/User.java	(date 1649086977347)
+@@ -0,0 +1,76 @@
++package models;
++
++import javax.persistence.*;
++import java.util.ArrayList;
++import java.util.List;
++
++@Entity
++@Table (name = "users")
++public class User {
++
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private int id;
++    @Column(name = "name")
++    private String name;
++    //можно не указывать Column name, если оно совпадает с названием столбца в таблице
++    private int age;
++
++    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
++    private List<Auto> autos;
++
++    public User() {
++    }
++
++    public User(String name, int age) {
++        this.name = name;
++        this.age = age;
++        autos = new ArrayList<>();
++    }
++
++    public void addAuto(Auto auto) {
++        auto.setUser(this);
++        autos.add(auto);
++    }
++
++    public void removeAuto(Auto auto) {
++        autos.remove(auto);
++    }
++
++    public int getId() {
++        return id;
++    }
++
++    public String getName() {
++        return name;
++    }
++
++    public void setName(String name) {
++        this.name = name;
++    }
++
++    public int getAge() {
++        return age;
++    }
++
++    public void setAge(int age) {
++        this.age = age;
++    }
++
++    public List<Auto> getAutos() {
++        return autos;
++    }
++
++    public void setAutos(List<Auto> autos) {
++        this.autos = autos;
++    }
++
++    @Override
++    public String toString() {
++        return "models.User{" +
++                "id=" + id +
++                ", name='" + name + '\'' +
++                ", age=" + age +
++                '}';
++    }
++}
+Index: src/main/java/services/UserService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/services/UserService.java	(date 1649088213650)
++++ src/main/java/services/UserService.java	(date 1649088213650)
+@@ -0,0 +1,41 @@
++package services;
++
++import dao.UserDao;
++import models.Auto;
++import models.User;
++
++import java.util.List;
++
++public class UserService {
++
++    private UserDao usersDao = new UserDao();
++
++    public UserService() {
++    }
++
++    public User findUser(int id) {
++        return usersDao.findById(id);
++    }
++
++    public void saveUser(User user) {
++        usersDao.save(user);
++    }
++
++    public void deleteUser(User user) {
++        usersDao.delete(user);
++    }
++
++    public void updateUser(User user) {
++        usersDao.update(user);
++    }
++
++    public List<User> findAllUsers() {
++        return usersDao.findAll();
++    }
++
++    public Auto findAutoById(int id) {
++        return usersDao.findAutoById(id);
++    }
++
++
++}
+Index: .idea/compiler.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/compiler.xml	(date 1649165743711)
++++ .idea/compiler.xml	(date 1649165743711)
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="CompilerConfiguration">
++    <annotationProcessing>
++      <profile name="Maven default annotation processors profile" enabled="true">
++        <sourceOutputDir name="target/generated-sources/annotations" />
++        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
++        <outputRelativeToContentRoot value="true" />
++        <module name="myFirstHibernateApp" />
++      </profile>
++    </annotationProcessing>
++  </component>
++</project>
+\ No newline at end of file
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- pom.xml	(date 1649087228417)
++++ pom.xml	(date 1649087228417)
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project xmlns="http://maven.apache.org/POM/4.0.0"
++         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
++    <modelVersion>4.0.0</modelVersion>
++
++    <groupId>com.jd2050.javarush</groupId>
++    <artifactId>myFirstHibernateApp</artifactId>
++    <version>1.0-SNAPSHOT</version>
++    <build>
++        <plugins>
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-compiler-plugin</artifactId>
++                <configuration>
++                    <source>7</source>
++                    <target>7</target>
++                </configuration>
++            </plugin>
++        </plugins>
++    </build>
++
++    <dependencies>
++        <!-- https://mvnrepository.com/artifact/postgresql/postgresql -->
++        <dependency>
++            <groupId>postgresql</groupId>
++            <artifactId>postgresql</artifactId>
++            <version>9.1-901-1.jdbc4</version>
++        </dependency>
++
++        <!-- https://mvnrepository.com/artifact/org.hibernate/hibernate-core -->
++        <dependency>
++            <groupId>org.hibernate</groupId>
++            <artifactId>hibernate-core</artifactId>
++            <version>5.2.6.Final</version>
++        </dependency>
++
++    </dependencies>
++
++</project>
+\ No newline at end of file
+Index: .idea/codeStyles/Project.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/codeStyles/Project.xml	(date 1649165743961)
++++ .idea/codeStyles/Project.xml	(date 1649165743961)
+@@ -0,0 +1,66 @@
++<component name="ProjectCodeStyleConfiguration">
++  <code_scheme name="Project" version="173">
++    <DBN-PSQL>
++      <case-options enabled="true">
++        <option name="KEYWORD_CASE" value="lower" />
++        <option name="FUNCTION_CASE" value="lower" />
++        <option name="PARAMETER_CASE" value="lower" />
++        <option name="DATATYPE_CASE" value="lower" />
++        <option name="OBJECT_CASE" value="preserve" />
++      </case-options>
++      <formatting-settings enabled="false" />
++    </DBN-PSQL>
++    <DBN-SQL>
++      <case-options enabled="true">
++        <option name="KEYWORD_CASE" value="lower" />
++        <option name="FUNCTION_CASE" value="lower" />
++        <option name="PARAMETER_CASE" value="lower" />
++        <option name="DATATYPE_CASE" value="lower" />
++        <option name="OBJECT_CASE" value="preserve" />
++      </case-options>
++      <formatting-settings enabled="false">
++        <option name="STATEMENT_SPACING" value="one_line" />
++        <option name="CLAUSE_CHOP_DOWN" value="chop_down_if_statement_long" />
++        <option name="ITERATION_ELEMENTS_WRAPPING" value="chop_down_if_not_single" />
++      </formatting-settings>
++    </DBN-SQL>
++    <JSON>
++      <option name="SPACE_BEFORE_COLON" value="true" />
++      <option name="KEEP_TRAILING_COMMA" value="true" />
++    </JSON>
++    <DBN-PSQL>
++      <case-options enabled="true">
++        <option name="KEYWORD_CASE" value="lower" />
++        <option name="FUNCTION_CASE" value="lower" />
++        <option name="PARAMETER_CASE" value="lower" />
++        <option name="DATATYPE_CASE" value="lower" />
++        <option name="OBJECT_CASE" value="preserve" />
++      </case-options>
++      <formatting-settings enabled="false" />
++    </DBN-PSQL>
++    <DBN-SQL>
++      <case-options enabled="true">
++        <option name="KEYWORD_CASE" value="lower" />
++        <option name="FUNCTION_CASE" value="lower" />
++        <option name="PARAMETER_CASE" value="lower" />
++        <option name="DATATYPE_CASE" value="lower" />
++        <option name="OBJECT_CASE" value="preserve" />
++      </case-options>
++      <formatting-settings enabled="false">
++        <option name="STATEMENT_SPACING" value="one_line" />
++        <option name="CLAUSE_CHOP_DOWN" value="chop_down_if_statement_long" />
++        <option name="ITERATION_ELEMENTS_WRAPPING" value="chop_down_if_not_single" />
++      </formatting-settings>
++    </DBN-SQL>
++    <codeStyleSettings language="JSON">
++      <option name="SPACE_BEFORE_COMMA" value="true" />
++      <option name="SPACE_WITHIN_BRACKETS" value="true" />
++      <option name="SPACE_WITHIN_BRACES" value="true" />
++      <option name="WRAP_LONG_LINES" value="true" />
++      <indentOptions>
++        <option name="USE_TAB_CHARACTER" value="true" />
++        <option name="KEEP_INDENTS_ON_EMPTY_LINES" value="true" />
++      </indentOptions>
++    </codeStyleSettings>
++  </code_scheme>
++</component>
+\ No newline at end of file
+Index: .idea/codeStyles/codeStyleConfig.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/codeStyles/codeStyleConfig.xml	(date 1649084632027)
++++ .idea/codeStyles/codeStyleConfig.xml	(date 1649084632027)
+@@ -0,0 +1,5 @@
++<component name="ProjectCodeStyleConfiguration">
++  <state>
++    <option name="PREFERRED_PROJECT_CODE_STYLE" value="Default" />
++  </state>
++</component>
+\ No newline at end of file
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/misc.xml	(date 1649084648700)
++++ .idea/misc.xml	(date 1649084648700)
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="ExternalStorageConfigurationManager" enabled="true" />
++  <component name="MavenProjectsManager">
++    <option name="originalFiles">
++      <list>
++        <option value="$PROJECT_DIR$/pom.xml" />
++      </list>
++    </option>
++  </component>
++  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8" project-jdk-name="1.8" project-jdk-type="JavaSDK">
++    <output url="file://$PROJECT_DIR$/out" />
++  </component>
++</project>
+\ No newline at end of file
+Index: .idea/encodings.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/encodings.xml	(date 1649084630877)
++++ .idea/encodings.xml	(date 1649084630877)
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="Encoding" addBOMForNewFiles="with NO BOM" />
++</project>
+\ No newline at end of file
+Index: .idea/vcs.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/vcs.xml	(date 1649175379568)
++++ .idea/vcs.xml	(date 1649175379568)
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="VcsDirectoryMappings">
++    <mapping directory="C:/Program Files/Git/bin" vcs="Git" />
++    <mapping directory="C:/Program Files/Git/cmd" vcs="Git" />
++    <mapping directory="$PROJECT_DIR$" vcs="Git" />
++    <mapping directory="$PROJECT_DIR$/src/main/java" vcs="Git" />
++  </component>
++</project>
+\ No newline at end of file
+Index: .idea/dbnavigator.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/dbnavigator.xml	(date 1649085643132)
++++ .idea/dbnavigator.xml	(date 1649085643132)
+@@ -0,0 +1,642 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="DBNavigator.Project.DataEditorManager">
++    <record-view-column-sorting-type value="BY_INDEX" />
++    <value-preview-text-wrapping value="true" />
++    <value-preview-pinned value="false" />
++  </component>
++  <component name="DBNavigator.Project.DataExportManager">
++    <export-instructions>
++      <create-header value="true" />
++      <friendly-headers value="false" />
++      <quote-values-containing-separator value="true" />
++      <quote-all-values value="false" />
++      <value-separator value="" />
++      <file-name value="" />
++      <file-location value="" />
++      <scope value="GLOBAL" />
++      <destination value="FILE" />
++      <format value="EXCEL" />
++      <charset value="windows-1251" />
++    </export-instructions>
++  </component>
++  <component name="DBNavigator.Project.DatabaseBrowserManager">
++    <autoscroll-to-editor value="false" />
++    <autoscroll-from-editor value="true" />
++    <show-object-properties value="true" />
++    <loaded-nodes />
++  </component>
++  <component name="DBNavigator.Project.DatabaseConsoleManager">
++    <connection id="b24913f7-9625-47f8-9b08-91eab1779718">
++      <console name="users" type="STANDARD" schema="" session="Main" />
++    </connection>
++    <connection id="444c0524-e63b-47de-be23-dec8c7f58518">
++      <console name="autos" type="STANDARD" schema="" session="Main" />
++    </connection>
++  </component>
++  <component name="DBNavigator.Project.DatabaseFileManager">
++    <open-files />
++  </component>
++  <component name="DBNavigator.Project.DatabaseSessionManager">
++    <connection id="b24913f7-9625-47f8-9b08-91eab1779718" />
++    <connection id="444c0524-e63b-47de-be23-dec8c7f58518" />
++  </component>
++  <component name="DBNavigator.Project.EditorStateManager">
++    <last-used-providers />
++  </component>
++  <component name="DBNavigator.Project.ExecutionManager">
++    <retain-sticky-names value="false" />
++  </component>
++  <component name="DBNavigator.Project.MethodExecutionManager">
++    <method-browser />
++    <execution-history>
++      <group-entries value="true" />
++      <execution-inputs />
++    </execution-history>
++    <argument-values-cache />
++  </component>
++  <component name="DBNavigator.Project.ObjectDependencyManager">
++    <last-used-dependency-type value="INCOMING" />
++  </component>
++  <component name="DBNavigator.Project.ObjectQuickFilterManager">
++    <last-used-operator value="EQUAL" />
++    <filters />
++  </component>
++  <component name="DBNavigator.Project.ParserDiagnosticsManager">
++    <diagnostics-history />
++  </component>
++  <component name="DBNavigator.Project.ScriptExecutionManager" clear-outputs="true">
++    <recently-used-interfaces />
++  </component>
++  <component name="DBNavigator.Project.Settings">
++    <connections>
++      <connection id="b24913f7-9625-47f8-9b08-91eab1779718" active="true" signed="false">
++        <database>
++          <name value="users" />
++          <description value="" />
++          <database-type value="POSTGRES" />
++          <config-type value="BASIC" />
++          <database-version value="9999.0" />
++          <driver-source value="BUILTIN" />
++          <driver-library value="" />
++          <driver value="" />
++          <url-type value="DATABASE" />
++          <host value="localhost" />
++          <port value="5432" />
++          <database value="postgres" />
++          <type value="USER_PASSWORD" />
++          <user value="Sergey" />
++          <deprecated-pwd value="" />
++        </database>
++        <properties>
++          <auto-commit value="false" />
++        </properties>
++        <ssh-settings>
++          <active value="false" />
++          <proxy-host value="" />
++          <proxy-port value="22" />
++          <proxy-user value="" />
++          <deprecated-proxy-pwd value="" />
++          <auth-type value="PASSWORD" />
++          <key-file value="" />
++          <key-passphrase value="" />
++        </ssh-settings>
++        <ssl-settings>
++          <active value="false" />
++          <certificate-authority-file value="" />
++          <client-certificate-file value="" />
++          <client-key-file value="" />
++        </ssl-settings>
++        <details>
++          <charset value="UTF-8" />
++          <session-management value="true" />
++          <ddl-file-binding value="true" />
++          <database-logging value="true" />
++          <connect-automatically value="true" />
++          <restore-workspace value="true" />
++          <restore-workspace-deep value="false" />
++          <environment-type value="default" />
++          <connectivity-timeout value="5" />
++          <idle-time-to-disconnect value="30" />
++          <idle-time-to-disconnect-pool value="5" />
++          <credential-expiry-time value="10" />
++          <max-connection-pool-size value="7" />
++          <alternative-statement-delimiter value="" />
++        </details>
++        <object-filters hide-empty-schemas="false" hide-pseudo-columns="false">
++          <object-type-filter use-master-settings="true">
++            <object-type name="SCHEMA" enabled="true" />
++            <object-type name="USER" enabled="true" />
++            <object-type name="ROLE" enabled="true" />
++            <object-type name="PRIVILEGE" enabled="true" />
++            <object-type name="CHARSET" enabled="true" />
++            <object-type name="TABLE" enabled="true" />
++            <object-type name="VIEW" enabled="true" />
++            <object-type name="MATERIALIZED_VIEW" enabled="true" />
++            <object-type name="NESTED_TABLE" enabled="true" />
++            <object-type name="COLUMN" enabled="true" />
++            <object-type name="INDEX" enabled="true" />
++            <object-type name="CONSTRAINT" enabled="true" />
++            <object-type name="DATASET_TRIGGER" enabled="true" />
++            <object-type name="DATABASE_TRIGGER" enabled="true" />
++            <object-type name="SYNONYM" enabled="true" />
++            <object-type name="SEQUENCE" enabled="true" />
++            <object-type name="PROCEDURE" enabled="true" />
++            <object-type name="FUNCTION" enabled="true" />
++            <object-type name="PACKAGE" enabled="true" />
++            <object-type name="TYPE" enabled="true" />
++            <object-type name="TYPE_ATTRIBUTE" enabled="true" />
++            <object-type name="ARGUMENT" enabled="true" />
++            <object-type name="DIMENSION" enabled="true" />
++            <object-type name="CLUSTER" enabled="true" />
++            <object-type name="DBLINK" enabled="true" />
++          </object-type-filter>
++          <object-name-filters />
++        </object-filters>
++      </connection>
++      <connection id="444c0524-e63b-47de-be23-dec8c7f58518" active="true" signed="false">
++        <database>
++          <name value="autos" />
++          <description value="" />
++          <database-type value="POSTGRES" />
++          <config-type value="BASIC" />
++          <database-version value="9999.0" />
++          <driver-source value="EXTERNAL" />
++          <driver-library value="C:\Program Files\PostgreSQL\pgAdmin\v4" />
++          <driver value="" />
++          <url-type value="DATABASE" />
++          <host value="localhost" />
++          <port value="5432" />
++          <database value="postgres" />
++          <type value="USER_PASSWORD" />
++          <user value="Sergey" />
++          <deprecated-pwd value="MTkwNTIwMDE=" />
++        </database>
++        <properties>
++          <auto-commit value="false" />
++        </properties>
++        <ssh-settings>
++          <active value="false" />
++          <proxy-host value="" />
++          <proxy-port value="22" />
++          <proxy-user value="" />
++          <deprecated-proxy-pwd value="" />
++          <auth-type value="PASSWORD" />
++          <key-file value="" />
++          <key-passphrase value="" />
++        </ssh-settings>
++        <ssl-settings>
++          <active value="false" />
++          <certificate-authority-file value="" />
++          <client-certificate-file value="" />
++          <client-key-file value="" />
++        </ssl-settings>
++        <details>
++          <charset value="UTF-8" />
++          <session-management value="true" />
++          <ddl-file-binding value="true" />
++          <database-logging value="true" />
++          <connect-automatically value="true" />
++          <restore-workspace value="true" />
++          <restore-workspace-deep value="false" />
++          <environment-type value="default" />
++          <connectivity-timeout value="5" />
++          <idle-time-to-disconnect value="30" />
++          <idle-time-to-disconnect-pool value="5" />
++          <credential-expiry-time value="10" />
++          <max-connection-pool-size value="7" />
++          <alternative-statement-delimiter value="" />
++        </details>
++        <object-filters hide-empty-schemas="false" hide-pseudo-columns="false">
++          <object-type-filter use-master-settings="true">
++            <object-type name="SCHEMA" enabled="true" />
++            <object-type name="USER" enabled="true" />
++            <object-type name="ROLE" enabled="true" />
++            <object-type name="PRIVILEGE" enabled="true" />
++            <object-type name="CHARSET" enabled="true" />
++            <object-type name="TABLE" enabled="true" />
++            <object-type name="VIEW" enabled="true" />
++            <object-type name="MATERIALIZED_VIEW" enabled="true" />
++            <object-type name="NESTED_TABLE" enabled="true" />
++            <object-type name="COLUMN" enabled="true" />
++            <object-type name="INDEX" enabled="true" />
++            <object-type name="CONSTRAINT" enabled="true" />
++            <object-type name="DATASET_TRIGGER" enabled="true" />
++            <object-type name="DATABASE_TRIGGER" enabled="true" />
++            <object-type name="SYNONYM" enabled="true" />
++            <object-type name="SEQUENCE" enabled="true" />
++            <object-type name="PROCEDURE" enabled="true" />
++            <object-type name="FUNCTION" enabled="true" />
++            <object-type name="PACKAGE" enabled="true" />
++            <object-type name="TYPE" enabled="true" />
++            <object-type name="TYPE_ATTRIBUTE" enabled="true" />
++            <object-type name="ARGUMENT" enabled="true" />
++            <object-type name="DIMENSION" enabled="true" />
++            <object-type name="CLUSTER" enabled="true" />
++            <object-type name="DBLINK" enabled="true" />
++          </object-type-filter>
++          <object-name-filters />
++        </object-filters>
++      </connection>
++    </connections>
++    <browser-settings>
++      <general>
++        <display-mode value="TABBED" />
++        <navigation-history-size value="100" />
++        <show-object-details value="false" />
++      </general>
++      <filters>
++        <object-type-filter>
++          <object-type name="SCHEMA" enabled="true" />
++          <object-type name="USER" enabled="true" />
++          <object-type name="ROLE" enabled="true" />
++          <object-type name="PRIVILEGE" enabled="true" />
++          <object-type name="CHARSET" enabled="true" />
++          <object-type name="TABLE" enabled="true" />
++          <object-type name="VIEW" enabled="true" />
++          <object-type name="MATERIALIZED_VIEW" enabled="true" />
++          <object-type name="NESTED_TABLE" enabled="true" />
++          <object-type name="COLUMN" enabled="true" />
++          <object-type name="INDEX" enabled="true" />
++          <object-type name="CONSTRAINT" enabled="true" />
++          <object-type name="DATASET_TRIGGER" enabled="true" />
++          <object-type name="DATABASE_TRIGGER" enabled="true" />
++          <object-type name="SYNONYM" enabled="true" />
++          <object-type name="SEQUENCE" enabled="true" />
++          <object-type name="PROCEDURE" enabled="true" />
++          <object-type name="FUNCTION" enabled="true" />
++          <object-type name="PACKAGE" enabled="true" />
++          <object-type name="TYPE" enabled="true" />
++          <object-type name="TYPE_ATTRIBUTE" enabled="true" />
++          <object-type name="ARGUMENT" enabled="true" />
++          <object-type name="DIMENSION" enabled="true" />
++          <object-type name="CLUSTER" enabled="true" />
++          <object-type name="DBLINK" enabled="true" />
++        </object-type-filter>
++      </filters>
++      <sorting>
++        <object-type name="COLUMN" sorting-type="NAME" />
++        <object-type name="FUNCTION" sorting-type="NAME" />
++        <object-type name="PROCEDURE" sorting-type="NAME" />
++        <object-type name="ARGUMENT" sorting-type="POSITION" />
++      </sorting>
++      <default-editors>
++        <object-type name="VIEW" editor-type="SELECTION" />
++        <object-type name="PACKAGE" editor-type="SELECTION" />
++        <object-type name="TYPE" editor-type="SELECTION" />
++      </default-editors>
++    </browser-settings>
++    <navigation-settings>
++      <lookup-filters>
++        <lookup-objects>
++          <object-type name="SCHEMA" enabled="true" />
++          <object-type name="USER" enabled="false" />
++          <object-type name="ROLE" enabled="false" />
++          <object-type name="PRIVILEGE" enabled="false" />
++          <object-type name="CHARSET" enabled="false" />
++          <object-type name="TABLE" enabled="true" />
++          <object-type name="VIEW" enabled="true" />
++          <object-type name="MATERIALIZED VIEW" enabled="true" />
++          <object-type name="INDEX" enabled="true" />
++          <object-type name="CONSTRAINT" enabled="true" />
++          <object-type name="DATASET TRIGGER" enabled="true" />
++          <object-type name="DATABASE TRIGGER" enabled="true" />
++          <object-type name="SYNONYM" enabled="false" />
++          <object-type name="SEQUENCE" enabled="true" />
++          <object-type name="PROCEDURE" enabled="true" />
++          <object-type name="FUNCTION" enabled="true" />
++          <object-type name="PACKAGE" enabled="true" />
++          <object-type name="TYPE" enabled="true" />
++          <object-type name="DIMENSION" enabled="false" />
++          <object-type name="CLUSTER" enabled="false" />
++          <object-type name="DBLINK" enabled="true" />
++        </lookup-objects>
++        <force-database-load value="false" />
++        <prompt-connection-selection value="true" />
++        <prompt-schema-selection value="true" />
++      </lookup-filters>
++    </navigation-settings>
++    <dataset-grid-settings>
++      <general>
++        <enable-zooming value="true" />
++        <enable-column-tooltip value="true" />
++      </general>
++      <sorting>
++        <nulls-first value="true" />
++        <max-sorting-columns value="4" />
++      </sorting>
++      <tracking-columns>
++        <columnNames value="" />
++        <visible value="true" />
++        <editable value="false" />
++      </tracking-columns>
++    </dataset-grid-settings>
++    <dataset-editor-settings>
++      <text-editor-popup>
++        <active value="false" />
++        <active-if-empty value="false" />
++        <data-length-threshold value="100" />
++        <popup-delay value="1000" />
++      </text-editor-popup>
++      <values-actions-popup>
++        <show-popup-button value="true" />
++        <element-count-threshold value="1000" />
++        <data-length-threshold value="250" />
++      </values-actions-popup>
++      <general>
++        <fetch-block-size value="100" />
++        <fetch-timeout value="30" />
++        <trim-whitespaces value="true" />
++        <convert-empty-strings-to-null value="true" />
++        <select-content-on-cell-edit value="true" />
++        <large-value-preview-active value="true" />
++      </general>
++      <filters>
++        <prompt-filter-dialog value="true" />
++        <default-filter-type value="BASIC" />
++      </filters>
++      <qualified-text-editor text-length-threshold="300">
++        <content-types>
++          <content-type name="Text" enabled="true" />
++          <content-type name="Properties" enabled="true" />
++          <content-type name="XML" enabled="true" />
++          <content-type name="DTD" enabled="true" />
++          <content-type name="HTML" enabled="true" />
++          <content-type name="XHTML" enabled="true" />
++          <content-type name="Java" enabled="true" />
++          <content-type name="SQL" enabled="true" />
++          <content-type name="PL/SQL" enabled="true" />
++          <content-type name="JSON" enabled="true" />
++          <content-type name="JSON5" enabled="true" />
++          <content-type name="Groovy" enabled="true" />
++          <content-type name="AIDL" enabled="true" />
++          <content-type name="YAML" enabled="true" />
++          <content-type name="Manifest" enabled="true" />
++        </content-types>
++      </qualified-text-editor>
++      <record-navigation>
++        <navigation-target value="VIEWER" />
++      </record-navigation>
++    </dataset-editor-settings>
++    <code-editor-settings>
++      <general>
++        <show-object-navigation-gutter value="false" />
++        <show-spec-declaration-navigation-gutter value="true" />
++        <enable-spellchecking value="true" />
++        <enable-reference-spellchecking value="false" />
++      </general>
++      <confirmations>
++        <save-changes value="false" />
++        <revert-changes value="true" />
++      </confirmations>
++    </code-editor-settings>
++    <code-completion-settings>
++      <filters>
++        <basic-filter>
++          <filter-element type="RESERVED_WORD" id="keyword" selected="true" />
++          <filter-element type="RESERVED_WORD" id="function" selected="true" />
++          <filter-element type="RESERVED_WORD" id="parameter" selected="true" />
++          <filter-element type="RESERVED_WORD" id="datatype" selected="true" />
++          <filter-element type="RESERVED_WORD" id="exception" selected="true" />
++          <filter-element type="OBJECT" id="schema" selected="true" />
++          <filter-element type="OBJECT" id="role" selected="true" />
++          <filter-element type="OBJECT" id="user" selected="true" />
++          <filter-element type="OBJECT" id="privilege" selected="true" />
++          <user-schema>
++            <filter-element type="OBJECT" id="table" selected="true" />
++            <filter-element type="OBJECT" id="view" selected="true" />
++            <filter-element type="OBJECT" id="materialized view" selected="true" />
++            <filter-element type="OBJECT" id="index" selected="true" />
++            <filter-element type="OBJECT" id="constraint" selected="true" />
++            <filter-element type="OBJECT" id="trigger" selected="true" />
++            <filter-element type="OBJECT" id="synonym" selected="false" />
++            <filter-element type="OBJECT" id="sequence" selected="true" />
++            <filter-element type="OBJECT" id="procedure" selected="true" />
++            <filter-element type="OBJECT" id="function" selected="true" />
++            <filter-element type="OBJECT" id="package" selected="true" />
++            <filter-element type="OBJECT" id="type" selected="true" />
++            <filter-element type="OBJECT" id="dimension" selected="true" />
++            <filter-element type="OBJECT" id="cluster" selected="true" />
++            <filter-element type="OBJECT" id="dblink" selected="true" />
++          </user-schema>
++          <public-schema>
++            <filter-element type="OBJECT" id="table" selected="false" />
++            <filter-element type="OBJECT" id="view" selected="false" />
++            <filter-element type="OBJECT" id="materialized view" selected="false" />
++            <filter-element type="OBJECT" id="index" selected="false" />
++            <filter-element type="OBJECT" id="constraint" selected="false" />
++            <filter-element type="OBJECT" id="trigger" selected="false" />
++            <filter-element type="OBJECT" id="synonym" selected="false" />
++            <filter-element type="OBJECT" id="sequence" selected="false" />
++            <filter-element type="OBJECT" id="procedure" selected="false" />
++            <filter-element type="OBJECT" id="function" selected="false" />
++            <filter-element type="OBJECT" id="package" selected="false" />
++            <filter-element type="OBJECT" id="type" selected="false" />
++            <filter-element type="OBJECT" id="dimension" selected="false" />
++            <filter-element type="OBJECT" id="cluster" selected="false" />
++            <filter-element type="OBJECT" id="dblink" selected="false" />
++          </public-schema>
++          <any-schema>
++            <filter-element type="OBJECT" id="table" selected="true" />
++            <filter-element type="OBJECT" id="view" selected="true" />
++            <filter-element type="OBJECT" id="materialized view" selected="true" />
++            <filter-element type="OBJECT" id="index" selected="true" />
++            <filter-element type="OBJECT" id="constraint" selected="true" />
++            <filter-element type="OBJECT" id="trigger" selected="true" />
++            <filter-element type="OBJECT" id="synonym" selected="true" />
++            <filter-element type="OBJECT" id="sequence" selected="true" />
++            <filter-element type="OBJECT" id="procedure" selected="true" />
++            <filter-element type="OBJECT" id="function" selected="true" />
++            <filter-element type="OBJECT" id="package" selected="true" />
++            <filter-element type="OBJECT" id="type" selected="true" />
++            <filter-element type="OBJECT" id="dimension" selected="true" />
++            <filter-element type="OBJECT" id="cluster" selected="true" />
++            <filter-element type="OBJECT" id="dblink" selected="true" />
++          </any-schema>
++        </basic-filter>
++        <extended-filter>
++          <filter-element type="RESERVED_WORD" id="keyword" selected="true" />
++          <filter-element type="RESERVED_WORD" id="function" selected="true" />
++          <filter-element type="RESERVED_WORD" id="parameter" selected="true" />
++          <filter-element type="RESERVED_WORD" id="datatype" selected="true" />
++          <filter-element type="RESERVED_WORD" id="exception" selected="true" />
++          <filter-element type="OBJECT" id="schema" selected="true" />
++          <filter-element type="OBJECT" id="user" selected="true" />
++          <filter-element type="OBJECT" id="role" selected="true" />
++          <filter-element type="OBJECT" id="privilege" selected="true" />
++          <user-schema>
++            <filter-element type="OBJECT" id="table" selected="true" />
++            <filter-element type="OBJECT" id="view" selected="true" />
++            <filter-element type="OBJECT" id="materialized view" selected="true" />
++            <filter-element type="OBJECT" id="index" selected="true" />
++            <filter-element type="OBJECT" id="constraint" selected="true" />
++            <filter-element type="OBJECT" id="trigger" selected="true" />
++            <filter-element type="OBJECT" id="synonym" selected="true" />
++            <filter-element type="OBJECT" id="sequence" selected="true" />
++            <filter-element type="OBJECT" id="procedure" selected="true" />
++            <filter-element type="OBJECT" id="function" selected="true" />
++            <filter-element type="OBJECT" id="package" selected="true" />
++            <filter-element type="OBJECT" id="type" selected="true" />
++            <filter-element type="OBJECT" id="dimension" selected="true" />
++            <filter-element type="OBJECT" id="cluster" selected="true" />
++            <filter-element type="OBJECT" id="dblink" selected="true" />
++          </user-schema>
++          <public-schema>
++            <filter-element type="OBJECT" id="table" selected="true" />
++            <filter-element type="OBJECT" id="view" selected="true" />
++            <filter-element type="OBJECT" id="materialized view" selected="true" />
++            <filter-element type="OBJECT" id="index" selected="true" />
++            <filter-element type="OBJECT" id="constraint" selected="true" />
++            <filter-element type="OBJECT" id="trigger" selected="true" />
++            <filter-element type="OBJECT" id="synonym" selected="true" />
++            <filter-element type="OBJECT" id="sequence" selected="true" />
++            <filter-element type="OBJECT" id="procedure" selected="true" />
++            <filter-element type="OBJECT" id="function" selected="true" />
++            <filter-element type="OBJECT" id="package" selected="true" />
++            <filter-element type="OBJECT" id="type" selected="true" />
++            <filter-element type="OBJECT" id="dimension" selected="true" />
++            <filter-element type="OBJECT" id="cluster" selected="true" />
++            <filter-element type="OBJECT" id="dblink" selected="true" />
++          </public-schema>
++          <any-schema>
++            <filter-element type="OBJECT" id="table" selected="true" />
++            <filter-element type="OBJECT" id="view" selected="true" />
++            <filter-element type="OBJECT" id="materialized view" selected="true" />
++            <filter-element type="OBJECT" id="index" selected="true" />
++            <filter-element type="OBJECT" id="constraint" selected="true" />
++            <filter-element type="OBJECT" id="trigger" selected="true" />
++            <filter-element type="OBJECT" id="synonym" selected="true" />
++            <filter-element type="OBJECT" id="sequence" selected="true" />
++            <filter-element type="OBJECT" id="procedure" selected="true" />
++            <filter-element type="OBJECT" id="function" selected="true" />
++            <filter-element type="OBJECT" id="package" selected="true" />
++            <filter-element type="OBJECT" id="type" selected="true" />
++            <filter-element type="OBJECT" id="dimension" selected="true" />
++            <filter-element type="OBJECT" id="cluster" selected="true" />
++            <filter-element type="OBJECT" id="dblink" selected="true" />
++          </any-schema>
++        </extended-filter>
++      </filters>
++      <sorting enabled="true">
++        <sorting-element type="RESERVED_WORD" id="keyword" />
++        <sorting-element type="RESERVED_WORD" id="datatype" />
++        <sorting-element type="OBJECT" id="column" />
++        <sorting-element type="OBJECT" id="table" />
++        <sorting-element type="OBJECT" id="view" />
++        <sorting-element type="OBJECT" id="materialized view" />
++        <sorting-element type="OBJECT" id="index" />
++        <sorting-element type="OBJECT" id="constraint" />
++        <sorting-element type="OBJECT" id="trigger" />
++        <sorting-element type="OBJECT" id="synonym" />
++        <sorting-element type="OBJECT" id="sequence" />
++        <sorting-element type="OBJECT" id="procedure" />
++        <sorting-element type="OBJECT" id="function" />
++        <sorting-element type="OBJECT" id="package" />
++        <sorting-element type="OBJECT" id="type" />
++        <sorting-element type="OBJECT" id="dimension" />
++        <sorting-element type="OBJECT" id="cluster" />
++        <sorting-element type="OBJECT" id="dblink" />
++        <sorting-element type="OBJECT" id="schema" />
++        <sorting-element type="OBJECT" id="role" />
++        <sorting-element type="OBJECT" id="user" />
++        <sorting-element type="RESERVED_WORD" id="function" />
++        <sorting-element type="RESERVED_WORD" id="parameter" />
++      </sorting>
++      <format>
++        <enforce-code-style-case value="true" />
++      </format>
++    </code-completion-settings>
++    <execution-engine-settings>
++      <statement-execution>
++        <fetch-block-size value="100" />
++        <execution-timeout value="20" />
++        <debug-execution-timeout value="600" />
++        <focus-result value="false" />
++        <prompt-execution value="false" />
++      </statement-execution>
++      <script-execution>
++        <command-line-interfaces />
++        <execution-timeout value="300" />
++      </script-execution>
++      <method-execution>
++        <execution-timeout value="30" />
++        <debug-execution-timeout value="600" />
++        <parameter-history-size value="10" />
++      </method-execution>
++    </execution-engine-settings>
++    <operation-settings>
++      <transactions>
++        <uncommitted-changes>
++          <on-project-close value="ASK" />
++          <on-disconnect value="ASK" />
++          <on-autocommit-toggle value="ASK" />
++        </uncommitted-changes>
++        <multiple-uncommitted-changes>
++          <on-commit value="ASK" />
++          <on-rollback value="ASK" />
++        </multiple-uncommitted-changes>
++      </transactions>
++      <session-browser>
++        <disconnect-session value="ASK" />
++        <kill-session value="ASK" />
++        <reload-on-filter-change value="false" />
++      </session-browser>
++      <compiler>
++        <compile-type value="KEEP" />
++        <compile-dependencies value="ASK" />
++        <always-show-controls value="false" />
++      </compiler>
++      <debugger>
++        <debugger-type value="ASK" />
++        <use-generic-runners value="true" />
++      </debugger>
++    </operation-settings>
++    <ddl-file-settings>
++      <extensions>
++        <mapping file-type-id="VIEW" extensions="vw" />
++        <mapping file-type-id="TRIGGER" extensions="trg" />
++        <mapping file-type-id="PROCEDURE" extensions="prc" />
++        <mapping file-type-id="FUNCTION" extensions="fnc" />
++        <mapping file-type-id="PACKAGE" extensions="pkg" />
++        <mapping file-type-id="PACKAGE_SPEC" extensions="pks" />
++        <mapping file-type-id="PACKAGE_BODY" extensions="pkb" />
++        <mapping file-type-id="TYPE" extensions="tpe" />
++        <mapping file-type-id="TYPE_SPEC" extensions="tps" />
++        <mapping file-type-id="TYPE_BODY" extensions="tpb" />
++      </extensions>
++      <general>
++        <lookup-ddl-files value="true" />
++        <create-ddl-files value="false" />
++        <synchronize-ddl-files value="true" />
++        <use-qualified-names value="false" />
++        <make-scripts-rerunnable value="true" />
++      </general>
++    </ddl-file-settings>
++    <general-settings>
++      <regional-settings>
++        <date-format value="MEDIUM" />
++        <number-format value="UNGROUPED" />
++        <locale value="SYSTEM_DEFAULT" />
++        <use-custom-formats value="false" />
++      </regional-settings>
++      <environment>
++        <environment-types>
++          <environment-type id="development" name="Development" description="Development environment" color="-2430209/-12296320" readonly-code="false" readonly-data="false" />
++          <environment-type id="integration" name="Integration" description="Integration environment" color="-2621494/-12163514" readonly-code="true" readonly-data="false" />
++          <environment-type id="production" name="Production" description="Productive environment" color="-11574/-10271420" readonly-code="true" readonly-data="true" />
++          <environment-type id="other" name="Other" description="" color="-1576/-10724543" readonly-code="false" readonly-data="false" />
++        </environment-types>
++        <visibility-settings>
++          <connection-tabs value="true" />
++          <dialog-headers value="true" />
++          <object-editor-tabs value="true" />
++          <script-editor-tabs value="false" />
++          <execution-result-tabs value="true" />
++        </visibility-settings>
++      </environment>
++    </general-settings>
++  </component>
++  <component name="DBNavigator.Project.StatementExecutionManager">
++    <execution-variables />
++  </component>
++</project>
+\ No newline at end of file
